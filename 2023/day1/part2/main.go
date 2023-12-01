@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -101,7 +102,7 @@ func processLine(line *string) int {
 		}
 	}
 
-	// line doesn't include number char
+	// line doesn't include number char or word
 	if numSlice[0] == 0 {
 		return 0
 	}
@@ -114,13 +115,73 @@ func processLine(line *string) int {
 	return num
 }
 
-func main() {
+func startWorker(schedulerChan chan chan *string, resultChan chan int) {
+	workerTaskChan := make(chan *string)
+
+	go func() {
+		for {
+			schedulerChan <- workerTaskChan
+
+			line := <-workerTaskChan
+
+			resultChan <- processLine(line)
+		}
+	}()
+}
+
+func start(numOfWorker int) int {
+	if numOfWorker == 0 {
+		panic(fmt.Errorf("invalid worker number: %d, must be > 0", numOfWorker))
+	}
+
 	result := 0
+
 	lineEmitter := readFile()
 
-	for line := range lineEmitter {
-		result += processLine(line)
+	resultChan := make(chan int, numOfWorker)
+	schedulerChan := make(chan chan *string)
+	for i := 0; i < numOfWorker; i++ {
+		startWorker(schedulerChan, resultChan)
 	}
+
+	var doneReadingFile bool
+	var workerQueue []chan *string
+	var taskQueue []*string
+	for {
+		if doneReadingFile && len(taskQueue) == 0 && len(workerQueue) == numOfWorker && len(resultChan) == 0 {
+			break
+		}
+
+		var activeTask *string
+		var activeWorker chan *string
+
+		if len(taskQueue) > 0 && len(workerQueue) > 0 {
+			activeTask = taskQueue[0]
+			activeWorker = workerQueue[0]
+		}
+
+		select {
+		case line, ok := <-lineEmitter:
+			if ok {
+				taskQueue = append(taskQueue, line)
+			} else {
+				doneReadingFile = true
+			}
+		case workerChan := <-schedulerChan:
+			workerQueue = append(workerQueue, workerChan)
+		case activeWorker <- activeTask:
+			taskQueue = taskQueue[1:]
+			workerQueue = workerQueue[1:]
+		case number := <-resultChan:
+			result += number
+		}
+	}
+
+	return result
+}
+
+func main() {
+	result := start(6)
 
 	log.Printf("result is %d", result)
 }
