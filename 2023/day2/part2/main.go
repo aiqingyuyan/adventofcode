@@ -21,7 +21,7 @@ func readFile() <-chan *string {
 	lineEmitter := make(chan *string, 15)
 
 	go func() {
-		file, err := os.Open(filepath.Join("2023", "day2", "part1", "input.txt"))
+		file, err := os.Open(filepath.Join("2023", "day2", "part2", "input.txt"))
 		if err != nil {
 			panic(err)
 		}
