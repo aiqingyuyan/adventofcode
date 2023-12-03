@@ -1,12 +1,11 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strconv"
+	"yanyu/aoc/2023/executor"
+	"yanyu/aoc/2023/util"
 )
 
 var digitWordMap = map[string]byte{
@@ -19,32 +18,6 @@ var digitWordMap = map[string]byte{
 	"seven": '7',
 	"eight": '8',
 	"nine":  '9',
-}
-
-func readFile() <-chan *string {
-	lineEmitter := make(chan *string, 15)
-
-	go func() {
-		file, err := os.Open(filepath.Join("2023", "day1", "part2", "input.txt"))
-		if err != nil {
-			panic(err)
-		}
-
-		fileScanner := bufio.NewScanner(file)
-
-		fileScanner.Split(bufio.ScanLines)
-
-		for fileScanner.Scan() {
-			line := fileScanner.Text()
-			lineEmitter <- &line
-		}
-
-		close(lineEmitter)
-
-		log.Println("done reading all lines")
-	}()
-
-	return lineEmitter
 }
 
 func processLine(line *string) int {
@@ -115,73 +88,10 @@ func processLine(line *string) int {
 	return num
 }
 
-func startWorker(schedulerChan chan chan *string, resultChan chan int) {
-	workerTaskChan := make(chan *string)
-
-	go func() {
-		for {
-			schedulerChan <- workerTaskChan
-
-			line := <-workerTaskChan
-
-			resultChan <- processLine(line)
-		}
-	}()
-}
-
-func start(numOfWorker int) int {
-	if numOfWorker == 0 {
-		panic(fmt.Errorf("invalid worker number: %d, must be > 0", numOfWorker))
-	}
-
-	result := 0
-
-	lineEmitter := readFile()
-
-	resultChan := make(chan int, numOfWorker)
-	schedulerChan := make(chan chan *string)
-	for i := 0; i < numOfWorker; i++ {
-		startWorker(schedulerChan, resultChan)
-	}
-
-	var doneReadingFile bool
-	var workerQueue []chan *string
-	var taskQueue []*string
-	for {
-		if doneReadingFile && len(taskQueue) == 0 && len(workerQueue) == numOfWorker && len(resultChan) == 0 {
-			break
-		}
-
-		var activeTask *string
-		var activeWorker chan *string
-
-		if len(taskQueue) > 0 && len(workerQueue) > 0 {
-			activeTask = taskQueue[0]
-			activeWorker = workerQueue[0]
-		}
-
-		select {
-		case line, ok := <-lineEmitter:
-			if ok {
-				taskQueue = append(taskQueue, line)
-			} else {
-				doneReadingFile = true
-			}
-		case workerChan := <-schedulerChan:
-			workerQueue = append(workerQueue, workerChan)
-		case activeWorker <- activeTask:
-			taskQueue = taskQueue[1:]
-			workerQueue = workerQueue[1:]
-		case number := <-resultChan:
-			result += number
-		}
-	}
-
-	return result
-}
-
 func main() {
-	result := start(6)
+	lineEmitter := util.ReadFile(filepath.Join("2023", "day1", "part2", "input.txt"))
+
+	result := executor.Run(6, lineEmitter, processLine)
 
 	log.Printf("result is %d", result)
 }

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strconv"
+	"yanyu/aoc/2023/executor"
+	"yanyu/aoc/2023/util"
 )
 
 func max(a, b int) int {
@@ -17,30 +17,19 @@ func max(a, b int) int {
 	return b
 }
 
-func readFile() <-chan *string {
-	lineEmitter := make(chan *string, 15)
+func updateColorCubeNumber(buffer []byte, numRed *int, numGreen *int, numBlue *int, numCubes int) {
+	color := string(buffer)
 
-	go func() {
-		file, err := os.Open(filepath.Join("2023", "day2", "part2", "input.txt"))
-		if err != nil {
-			panic(err)
-		}
-
-		fileScanner := bufio.NewScanner(file)
-
-		fileScanner.Split(bufio.ScanLines)
-
-		for fileScanner.Scan() {
-			line := fileScanner.Text()
-			lineEmitter <- &line
-		}
-
-		close(lineEmitter)
-
-		log.Println("done reading all lines")
-	}()
-
-	return lineEmitter
+	switch color {
+	case "red":
+		*numRed = max(*numRed, numCubes)
+	case "green":
+		*numGreen = max(*numGreen, numCubes)
+	case "blue":
+		*numBlue = max(*numBlue, numCubes)
+	default:
+		panic(fmt.Errorf("invalid color str: %s", color))
+	}
 }
 
 func processLine(line *string) int {
@@ -71,47 +60,22 @@ func processLine(line *string) int {
 			buffer = nil
 		}
 
-		// process color
 		if c == ',' || c == ';' {
-			color := string(buffer)
-
-			switch color {
-			case "red":
-				numRed = max(numRed, numCubes)
-			case "green":
-				numGreen = max(numGreen, numCubes)
-			case "blue":
-				numBlue = max(numBlue, numCubes)
-			default:
-				panic(fmt.Errorf("invalid color str: %s", color))
-			}
-
+			// process color
+			updateColorCubeNumber(buffer, &numRed, &numGreen, &numBlue, numCubes)
 			buffer = nil
 		}
 	}
 
-	color := string(buffer)
-	switch color {
-	case "red":
-		numRed = max(numRed, numCubes)
-	case "green":
-		numGreen = max(numGreen, numCubes)
-	case "blue":
-		numBlue = max(numBlue, numCubes)
-	default:
-		panic(fmt.Errorf("invalid color str: %s", color))
-	}
+	updateColorCubeNumber(buffer, &numRed, &numGreen, &numBlue, numCubes)
 
 	return numRed * numGreen * numBlue
 }
 
 func main() {
-	lineEmitter := readFile()
+	lineEmitter := util.ReadFile(filepath.Join("2023", "day2", "part2", "input.txt"))
 
-	result := 0
-	for line := range lineEmitter {
-		result += processLine(line)
-	}
+	result := executor.Run(6, lineEmitter, processLine)
 
 	log.Printf("result is: %d", result)
 }

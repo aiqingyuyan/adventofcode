@@ -1,38 +1,35 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strconv"
+	"yanyu/aoc/2023/executor"
+	"yanyu/aoc/2023/util"
 )
 
-func readFile() <-chan *string {
-	lineEmitter := make(chan *string, 15)
+func isColorCubeNumberValid(buffer []byte, numCubes int) bool {
+	color := string(buffer)
 
-	go func() {
-		file, err := os.Open(filepath.Join("2023", "day2", "part1", "input.txt"))
-		if err != nil {
-			panic(err)
+	switch color {
+	case "red":
+		if numCubes > 12 {
+			return false
 		}
-
-		fileScanner := bufio.NewScanner(file)
-
-		fileScanner.Split(bufio.ScanLines)
-
-		for fileScanner.Scan() {
-			line := fileScanner.Text()
-			lineEmitter <- &line
+	case "green":
+		if numCubes > 13 {
+			return false
 		}
+	case "blue":
+		if numCubes > 14 {
+			return false
+		}
+	default:
+		panic(fmt.Errorf("invalid color str: %s", color))
+	}
 
-		close(lineEmitter)
-
-		log.Println("done reading all lines")
-	}()
-
-	return lineEmitter
+	return true
 }
 
 func processLine(line *string) int {
@@ -73,57 +70,25 @@ func processLine(line *string) int {
 
 		// process color
 		if c == ',' || c == ';' {
-			color := string(buffer)
-
-			switch color {
-			case "red":
-				if numCubes > 12 {
-					return 0
-				}
-			case "green":
-				if numCubes > 13 {
-					return 0
-				}
-			case "blue":
-				if numCubes > 14 {
-					return 0
-				}
-			default:
-				panic(fmt.Errorf("invalid color str: %s", color))
+			if !isColorCubeNumberValid(buffer, numCubes) {
+				return 0
 			}
 
 			buffer = nil
 		}
 	}
 
-	color := string(buffer)
-	switch color {
-	case "red":
-		if numCubes > 12 {
-			return 0
-		}
-	case "green":
-		if numCubes > 13 {
-			return 0
-		}
-	case "blue":
-		if numCubes > 14 {
-			return 0
-		}
-	default:
-		panic(fmt.Errorf("invalid color str: %s", color))
+	if !isColorCubeNumberValid(buffer, numCubes) {
+		return 0
 	}
 
 	return gameId
 }
 
 func main() {
-	lineEmitter := readFile()
+	lineEmitter := util.ReadFile(filepath.Join("2023", "day2", "part1", "input.txt"))
 
-	result := 0
-	for line := range lineEmitter {
-		result += processLine(line)
-	}
+	result := executor.Run(6, lineEmitter, processLine)
 
 	log.Printf("result is: %d", result)
 }
