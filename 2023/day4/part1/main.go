@@ -22,7 +22,7 @@ func processLine(line *string) int {
 		countOfFoundWinningNumber int
 		result                    int
 		numBuffer                 []byte
-		winningNums               = make(map[string]bool)
+		winningNumsToCheck        = make(map[string]bool)
 	)
 
 	for _, c := range []byte(*line) {
@@ -43,8 +43,8 @@ func processLine(line *string) int {
 
 			if c == ' ' && len(numBuffer) > 0 {
 				if !seenBar {
-					winningNums[string(numBuffer)] = true
-				} else if winningNums[string(numBuffer)] {
+					winningNumsToCheck[string(numBuffer)] = true
+				} else if winningNumsToCheck[string(numBuffer)] {
 					countOfFoundWinningNumber++
 					result = updateResult(result, countOfFoundWinningNumber)
 				}
@@ -53,7 +53,7 @@ func processLine(line *string) int {
 		}
 	}
 
-	if winningNums[string(numBuffer)] {
+	if winningNumsToCheck[string(numBuffer)] {
 		countOfFoundWinningNumber++
 		result = updateResult(result, countOfFoundWinningNumber)
 	}

@@ -33,7 +33,7 @@ func processCard(payload *cardPayload, cardCount []int, winningCardCountMap []in
 		seenBar                   bool
 		countOfFoundWinningNumber int
 		numBuffer                 []byte
-		winningNums               = make(map[string]bool)
+		winningNumsToCheck        = make(map[string]bool)
 	)
 
 	for _, c := range []byte(*payload.card) {
@@ -54,8 +54,8 @@ func processCard(payload *cardPayload, cardCount []int, winningCardCountMap []in
 
 			if c == ' ' && len(numBuffer) > 0 {
 				if !seenBar {
-					winningNums[string(numBuffer)] = true
-				} else if winningNums[string(numBuffer)] {
+					winningNumsToCheck[string(numBuffer)] = true
+				} else if winningNumsToCheck[string(numBuffer)] {
 					countOfFoundWinningNumber++
 				}
 				numBuffer = nil
@@ -63,7 +63,7 @@ func processCard(payload *cardPayload, cardCount []int, winningCardCountMap []in
 		}
 	}
 
-	if winningNums[string(numBuffer)] {
+	if winningNumsToCheck[string(numBuffer)] {
 		countOfFoundWinningNumber++
 	}
 
