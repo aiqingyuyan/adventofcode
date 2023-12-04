@@ -2,46 +2,64 @@ package executor
 
 import "fmt"
 
-func startWorker(schedulerChan chan chan *string, resultChan chan int, taskFunc TaskFunc) {
-	workerTaskChan := make(chan *string)
+type Executor interface {
+	Run(taskEmitter <-chan TaskFunc) int
+}
+
+type TaskFunc func() int
+
+type executor struct {
+	executorChan   chan chan TaskFunc
+	resultChan     chan int
+	numberOfWorker int
+}
+
+func New(numberOfWorker int) Executor {
+	if numberOfWorker == 0 {
+		panic(fmt.Errorf("invalid worker number: %d, must be > 0", numberOfWorker))
+	}
+
+	executor := executor{
+		executorChan:   make(chan chan TaskFunc),
+		resultChan:     make(chan int, numberOfWorker),
+		numberOfWorker: numberOfWorker,
+	}
+
+	for i := 0; i < numberOfWorker; i++ {
+		startWorker(executor.executorChan, executor.resultChan /*, processLineFunc*/)
+	}
+
+	return &executor
+}
+
+func startWorker(executorChan chan chan TaskFunc, resultChan chan int) {
+	workerTaskChan := make(chan TaskFunc)
 
 	go func() {
 		for {
-			schedulerChan <- workerTaskChan
+			executorChan <- workerTaskChan
 
-			line := <-workerTaskChan
+			taskFunc := <-workerTaskChan
 
-			resultChan <- taskFunc(line)
+			resultChan <- taskFunc()
 		}
 	}()
 }
 
-type TaskFunc func(*string) int
-
-func Run(numOfWorker int, lineEmitter <-chan *string, processLineFunc TaskFunc) int {
-	if numOfWorker == 0 {
-		panic(fmt.Errorf("invalid worker number: %d, must be > 0", numOfWorker))
-	}
-
+func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
 	result := 0
 
-	resultChan := make(chan int, numOfWorker)
-	schedulerChan := make(chan chan *string)
-	for i := 0; i < numOfWorker; i++ {
-		startWorker(schedulerChan, resultChan, processLineFunc)
-	}
-
 	var doneEmittingLine bool
-	var workerQueue []chan *string
-	var taskQueue []*string
+	var workerQueue []chan TaskFunc
+	var taskQueue []TaskFunc
 
 	for {
-		if doneEmittingLine && len(taskQueue) == 0 && len(workerQueue) == numOfWorker && len(resultChan) == 0 {
+		if doneEmittingLine && len(taskQueue) == 0 && len(workerQueue) == e.numberOfWorker && len(e.resultChan) == 0 {
 			break
 		}
 
-		var activeTask *string
-		var activeWorker chan *string
+		var activeTask TaskFunc
+		var activeWorker chan TaskFunc
 
 		if len(taskQueue) > 0 && len(workerQueue) > 0 {
 			activeTask = taskQueue[0]
@@ -49,18 +67,18 @@ func Run(numOfWorker int, lineEmitter <-chan *string, processLineFunc TaskFunc) 
 		}
 
 		select {
-		case line, ok := <-lineEmitter:
+		case task, ok := <-taskEmitter:
 			if ok {
-				taskQueue = append(taskQueue, line)
+				taskQueue = append(taskQueue, task)
 			} else {
 				doneEmittingLine = true
 			}
-		case workerChan := <-schedulerChan:
+		case workerChan := <-e.executorChan:
 			workerQueue = append(workerQueue, workerChan)
 		case activeWorker <- activeTask:
 			taskQueue = taskQueue[1:]
 			workerQueue = workerQueue[1:]
-		case number := <-resultChan:
+		case number := <-e.resultChan:
 			result += number
 		}
 	}

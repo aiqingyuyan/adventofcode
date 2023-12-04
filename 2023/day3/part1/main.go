@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 	"strconv"
+	"yanyu/aoc/2023/executor"
 	"yanyu/aoc/2023/util"
 )
 
@@ -132,6 +133,23 @@ func processLine(matrix []string, currentLineIdx int) int {
 	return result
 }
 
+func generateTaskFunc(matrix []string, lineIdx int) executor.TaskFunc {
+	return func() int {
+		return processLine(matrix, lineIdx)
+	}
+}
+
+func createTaskEmitter(matrix []string) <-chan executor.TaskFunc {
+	taskEmitter := make(chan executor.TaskFunc)
+	go func() {
+		for lineIdx := 0; lineIdx < len(matrix); lineIdx++ {
+			taskEmitter <- generateTaskFunc(matrix, lineIdx)
+		}
+		close(taskEmitter)
+	}()
+	return taskEmitter
+}
+
 func main() {
 	lineEmitter := util.ReadFile(filepath.Join("2023", "day3", "part1", "input.txt"))
 
@@ -140,10 +158,10 @@ func main() {
 		matrix = append(matrix, *line)
 	}
 
-	result := 0
-	for lineIdx := 0; lineIdx < len(matrix); lineIdx++ {
-		result += processLine(matrix, lineIdx)
-	}
+	e := executor.New(6)
+
+	taskEmitter := createTaskEmitter(matrix)
+	result := e.Run(taskEmitter)
 
 	log.Println("result is ", result)
 }

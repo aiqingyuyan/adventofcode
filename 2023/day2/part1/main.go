@@ -85,10 +85,30 @@ func processLine(line *string) int {
 	return gameId
 }
 
-func main() {
-	lineEmitter := util.ReadFile(filepath.Join("2023", "day2", "part1", "input.txt"))
+func generateTaskFunc(linePtr *string) executor.TaskFunc {
+	return func() int {
+		return processLine(linePtr)
+	}
+}
 
-	result := executor.Run(6, lineEmitter, processLine)
+func createTaskEmitter(lineEmitter <-chan *string) <-chan executor.TaskFunc {
+	taskEmitter := make(chan executor.TaskFunc)
+	go func() {
+		for line := range lineEmitter {
+			task := generateTaskFunc(line)
+			taskEmitter <- task
+		}
+		close(taskEmitter)
+	}()
+	return taskEmitter
+}
+
+func main() {
+	e := executor.New(6)
+
+	lineEmitter := util.ReadFile(filepath.Join("2023", "day2", "part1", "input.txt"))
+	taskEmitter := createTaskEmitter(lineEmitter)
+	result := e.Run(taskEmitter)
 
 	log.Printf("result is: %d", result)
 }
