@@ -31,3 +31,11 @@ func ReadFile(path string) <-chan *string {
 
 	return lineEmitter
 }
+
+func IsByteANumber(c byte) bool {
+	if c >= '0' && c <= '9' {
+		return true
+	}
+
+	return false
+}
