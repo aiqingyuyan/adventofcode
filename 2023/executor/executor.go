@@ -1,6 +1,8 @@
 package executor
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Executor interface {
 	Run(taskEmitter <-chan TaskFunc) int
@@ -49,12 +51,12 @@ func startWorker(executorChan chan chan TaskFunc, resultChan chan int) {
 func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
 	result := 0
 
-	var doneEmittingLine bool
+	var doneEmittingTask bool
 	var workerQueue []chan TaskFunc
 	var taskQueue []TaskFunc
 
 	for {
-		if doneEmittingLine && len(taskQueue) == 0 && len(workerQueue) == e.numberOfWorker && len(e.resultChan) == 0 {
+		if doneEmittingTask && len(taskQueue) == 0 && len(workerQueue) == e.numberOfWorker && len(e.resultChan) == 0 {
 			break
 		}
 
@@ -71,7 +73,7 @@ func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
 			if ok {
 				taskQueue = append(taskQueue, task)
 			} else {
-				doneEmittingLine = true
+				doneEmittingTask = true
 			}
 		case workerChan := <-e.executorChan:
 			workerQueue = append(workerQueue, workerChan)
@@ -81,6 +83,12 @@ func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
 		case number := <-e.resultChan:
 			result += number
 		}
+	}
+
+	for i := 0; i < e.numberOfWorker; i++ {
+		go func(id int) {
+			e.executorChan <- workerQueue[id]
+		}(i)
 	}
 
 	return result
