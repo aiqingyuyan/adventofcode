@@ -169,11 +169,14 @@ func lookUpLocation(seedNum int, params *computationParameters) int {
 
 func generateTaskFunc(lock *sync.Mutex, currentMin *int, seed seedPayload, params *computationParameters) executor.TaskFunc {
 	return func() int {
+		localCurrentMin := math.MaxInt
 		for seedNum := seed.start; seedNum <= seed.end; seedNum++ {
-			lock.Lock()
-			*currentMin = min(*currentMin, lookUpLocation(seedNum, params))
-			lock.Unlock()
+			localCurrentMin = min(localCurrentMin, lookUpLocation(seedNum, params))
 		}
+
+		lock.Lock()
+		defer lock.Unlock()
+		*currentMin = min(*currentMin, localCurrentMin)
 
 		return 0
 	}
