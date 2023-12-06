@@ -2,13 +2,9 @@ package main
 
 import (
 	"log"
-	"math"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
-	"sync"
-	"yanyu/aoc/2023/executor"
 	"yanyu/aoc/2023/util"
 )
 
@@ -19,8 +15,8 @@ type seedPayload struct {
 
 type sourceCategoryToDestination struct {
 	sourceStart int
-	sourceEnd   int
 	destStart   int
+	rangeLength int
 }
 
 type computationParameters struct {
@@ -32,6 +28,22 @@ type computationParameters struct {
 	lightToTemperature    []sourceCategoryToDestination
 	temperatureToHumidity []sourceCategoryToDestination
 	humidityToLocation    []sourceCategoryToDestination
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
 }
 
 func processLine(lineEmitter <-chan *string) *computationParameters {
@@ -129,89 +141,65 @@ func constructMap(linesBuffer []string) []sourceCategoryToDestination {
 
 		sourceToDestMap = append(sourceToDestMap, sourceCategoryToDestination{
 			sourceStart: sourceStart,
-			sourceEnd:   sourceStart + rangeLength - 1,
 			destStart:   destStart,
+			rangeLength: rangeLength,
 		})
 	}
 
 	return sourceToDestMap
 }
 
-func getDestination(source int, sToDs []sourceCategoryToDestination) int {
-	dest := source
+func getSource(dest int, sToDs []sourceCategoryToDestination) int {
+	source := dest
 	for _, sToD := range sToDs {
-		if source >= sToD.sourceStart && source <= sToD.sourceEnd {
-			offset := source - sToD.sourceStart
-			dest = sToD.destStart + offset
+		if sToD.destStart <= dest {
+			if dest-sToD.destStart+1 <= sToD.rangeLength {
+				offset := dest - sToD.destStart
+				source = sToD.sourceStart + offset
+
+				return source
+			}
 		}
 	}
 
-	return dest
+	return source
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+func reverseLookUp(location int, param *computationParameters) bool {
+	humidity := getSource(location, param.humidityToLocation)
+	temperature := getSource(humidity, param.temperatureToHumidity)
+	light := getSource(temperature, param.lightToTemperature)
+	water := getSource(light, param.waterToLight)
+	fertilizer := getSource(water, param.fertilizerToWater)
+	soil := getSource(fertilizer, param.soilToFertilizer)
+	seed := getSource(soil, param.seedToSoil)
+
+	for _, s := range param.seeds {
+		if seed >= s.start && seed <= s.end {
+			return true
+		}
 	}
 
-	return b
-}
-
-func lookUpLocation(seedNum int, params *computationParameters) int {
-	soil := getDestination(seedNum, params.seedToSoil)
-	fertilizer := getDestination(soil, params.soilToFertilizer)
-	water := getDestination(fertilizer, params.fertilizerToWater)
-	light := getDestination(water, params.waterToLight)
-	temperature := getDestination(light, params.lightToTemperature)
-	humidity := getDestination(temperature, params.temperatureToHumidity)
-	return getDestination(humidity, params.humidityToLocation)
-}
-
-func generateTaskFunc(lock *sync.Mutex, currentMin *int, seed seedPayload, params *computationParameters) executor.TaskFunc {
-	return func() int {
-		localCurrentMin := math.MaxInt
-		for seedNum := seed.start; seedNum <= seed.end; seedNum++ {
-			localCurrentMin = min(localCurrentMin, lookUpLocation(seedNum, params))
-		}
-
-		lock.Lock()
-		defer lock.Unlock()
-		*currentMin = min(*currentMin, localCurrentMin)
-
-		return 0
-	}
-}
-
-func generateTaskEmitter(lock *sync.Mutex, currentMin *int, params *computationParameters) <-chan executor.TaskFunc {
-	taskEmitter := make(chan executor.TaskFunc)
-
-	go func() {
-		for _, seed := range params.seeds {
-			log.Printf("emitting seed %d, %d", seed.start, seed.end)
-			taskEmitter <- generateTaskFunc(lock, currentMin, seed, params)
-		}
-
-		close(taskEmitter)
-	}()
-
-	return taskEmitter
+	return false
 }
 
 func main() {
-	e := executor.New(runtime.NumCPU())
-
 	lineEmitter := util.ReadFile(filepath.Join("2023", "day5", "input.txt"))
 
 	params := processLine(lineEmitter)
 
-	var (
-		currentMin = math.MaxInt
-		lock       sync.Mutex
-	)
+	limit := params.seeds[0].end
+	for i := 1; i < len(params.seeds); i++ {
+		limit = max(limit, params.seeds[i].end)
+	}
 
-	taskEmitter := generateTaskEmitter(&lock, &currentMin, params)
+	var location = 0
+	for ; location <= limit; location++ {
+		if reverseLookUp(location, params) {
+			break
+		}
+	}
 
-	e.Run(taskEmitter)
+	log.Println("result is", location)
 
-	log.Println("result is", currentMin)
 }
