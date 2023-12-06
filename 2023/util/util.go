@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"strconv"
 )
 
 func ReadFile(path string) <-chan *string {
@@ -38,4 +39,13 @@ func IsByteANumber(c byte) bool {
 	}
 
 	return false
+}
+
+func StrToNum(str string) int {
+	if num, err := strconv.Atoi(str); err == nil {
+		return num
+	} else {
+		log.Printf("err: %+v", err)
+		panic(err)
+	}
 }
