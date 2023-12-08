@@ -5,7 +5,6 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
-	"sync"
 	"yanyu/aoc/2023/executor"
 	"yanyu/aoc/2023/util"
 )
@@ -127,31 +126,35 @@ func keyComparator(a interface{}, b interface{}) int {
 	}
 }
 
-func processHand(line *string, tree *rbt.Tree, lock *sync.Mutex) {
+type handPayload struct {
+	handKey handKey
+	bid     int
+}
+
+func processHand(line *string) handPayload {
 	subStrs := strings.Split(*line, " ")
 	handT := determineHandType(subStrs[0])
 
-	lock.Lock()
-	defer lock.Unlock()
-
-	tree.Put(handKey{
-		hand: subStrs[0],
-		t:    handT,
-	}, util.StrToNum(subStrs[1]))
-}
-
-func generateTaskFunc(line *string, tree *rbt.Tree, lock *sync.Mutex) executor.TaskFunc {
-	return func() int {
-		processHand(line, tree, lock)
-		return 0
+	return handPayload{
+		handKey: handKey{
+			hand: subStrs[0],
+			t:    handT,
+		},
+		bid: util.StrToNum(subStrs[1]),
 	}
 }
 
-func generateTaskEmitter(lineEmitter <-chan *string, tree *rbt.Tree, lock *sync.Mutex) <-chan executor.TaskFunc {
+func generateTaskFunc(line *string) executor.TaskFunc {
+	return func() any {
+		return processHand(line)
+	}
+}
+
+func generateTaskEmitter(lineEmitter <-chan *string) <-chan executor.TaskFunc {
 	taskEmitter := make(chan executor.TaskFunc)
 	go func() {
 		for line := range lineEmitter {
-			taskEmitter <- generateTaskFunc(line, tree, lock)
+			taskEmitter <- generateTaskFunc(line)
 		}
 		close(taskEmitter)
 	}()
@@ -163,14 +166,15 @@ func main() {
 
 	lineEmitter := util.ReadFile(filepath.Join("2023", "day7", "input.txt"))
 
-	var (
-		tree = rbt.NewWith(keyComparator)
-		lock sync.Mutex
-	)
+	taskEmitter := generateTaskEmitter(lineEmitter)
 
-	taskEmitter := generateTaskEmitter(lineEmitter, tree, &lock)
+	tree := rbt.NewWith(keyComparator)
+	resultHandleFunc := func(taskFuncResult any) {
+		payload := taskFuncResult.(handPayload)
+		tree.Put(payload.handKey, payload.bid)
+	}
 
-	e.Run(taskEmitter)
+	e.Run(taskEmitter, resultHandleFunc)
 
 	values := tree.Values()
 

@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"path/filepath"
-	"sync"
 	"yanyu/aoc/2023/executor"
 	"yanyu/aoc/2023/util"
 )
@@ -11,6 +10,14 @@ import (
 type cardPayload struct {
 	card    *string
 	cardIdx int
+}
+
+func processLine(lineEmitter <-chan *string) (cardCount []int, cardDeck []*string) {
+	for line := range lineEmitter {
+		cardCount = append(cardCount, 1)
+		cardDeck = append(cardDeck, line)
+	}
+	return cardCount, cardDeck
 }
 
 func generateCardPayloadEmitter(cardDeck []*string) <-chan *cardPayload {
@@ -27,13 +34,18 @@ func generateCardPayloadEmitter(cardDeck []*string) <-chan *cardPayload {
 	return cardEmitter
 }
 
-func processCard(payload *cardPayload, cardCount []int, winningCardCountMap []int, lock *sync.Mutex) {
+type processedCardResult struct {
+	cardIdx                              int
+	countOfFoundWinningNumberForThisCard int
+}
+
+func processCard(payload *cardPayload) processedCardResult {
 	var (
-		seenColon                 bool
-		seenBar                   bool
-		countOfFoundWinningNumber int
-		numBuffer                 []byte
-		winningNumsToCheck        = make(map[string]bool)
+		seenColon                            bool
+		seenBar                              bool
+		countOfFoundWinningNumberForThisCard int
+		numBuffer                            []byte
+		winningNumsToCheck                   = make(map[string]bool)
 	)
 
 	for _, c := range []byte(*payload.card) {
@@ -56,7 +68,7 @@ func processCard(payload *cardPayload, cardCount []int, winningCardCountMap []in
 				if !seenBar {
 					winningNumsToCheck[string(numBuffer)] = true
 				} else if winningNumsToCheck[string(numBuffer)] {
-					countOfFoundWinningNumber++
+					countOfFoundWinningNumberForThisCard++
 				}
 				numBuffer = nil
 			}
@@ -64,30 +76,26 @@ func processCard(payload *cardPayload, cardCount []int, winningCardCountMap []in
 	}
 
 	if winningNumsToCheck[string(numBuffer)] {
-		countOfFoundWinningNumber++
+		countOfFoundWinningNumberForThisCard++
 	}
 
-	lock.Lock()
-	for i := 1; i <= countOfFoundWinningNumber; i++ {
-		cardCount[payload.cardIdx+i]++
-	}
-	lock.Unlock()
-
-	winningCardCountMap[payload.cardIdx] = countOfFoundWinningNumber
-}
-
-func generateTaskFunc(payload *cardPayload, cardCount []int, winningCardCountMap []int, lock *sync.Mutex) executor.TaskFunc {
-	return func() int {
-		processCard(payload, cardCount, winningCardCountMap, lock)
-		return 0
+	return processedCardResult{
+		cardIdx:                              payload.cardIdx,
+		countOfFoundWinningNumberForThisCard: countOfFoundWinningNumberForThisCard,
 	}
 }
 
-func generateTaskEmitter(cardPayloadEmitter <-chan *cardPayload, cardCount []int, winningCardCountMap []int, lock *sync.Mutex) chan executor.TaskFunc {
+func generateTaskFunc(payload *cardPayload) executor.TaskFunc {
+	return func() any {
+		return processCard(payload)
+	}
+}
+
+func generateTaskEmitter(cardPayloadEmitter <-chan *cardPayload) chan executor.TaskFunc {
 	taskEmitter := make(chan executor.TaskFunc)
 	go func() {
 		for payload := range cardPayloadEmitter {
-			taskEmitter <- generateTaskFunc(payload, cardCount, winningCardCountMap, lock)
+			taskEmitter <- generateTaskFunc(payload)
 		}
 		close(taskEmitter)
 	}()
@@ -107,26 +115,27 @@ func updateCardCount(cardCount []int, winningCardCountMap []int) {
 func main() {
 	e := executor.New(6)
 
-	var (
-		cardDeck  []*string
-		cardCount []int
-		lock      sync.Mutex
-	)
-
 	lineEmitter := util.ReadFile(filepath.Join("2023", "day4", "input.txt"))
 
-	for line := range lineEmitter {
-		cardCount = append(cardCount, 1)
-		cardDeck = append(cardDeck, line)
-	}
-
-	winningCardCountMap := make([]int, len(cardDeck))
+	cardCount, cardDeck := processLine(lineEmitter)
 
 	cardPayloadEmitter := generateCardPayloadEmitter(cardDeck)
 
-	taskEmitter := generateTaskEmitter(cardPayloadEmitter, cardCount, winningCardCountMap, &lock)
+	taskEmitter := generateTaskEmitter(cardPayloadEmitter)
 
-	e.Run(taskEmitter)
+	winningCardCountMap := make([]int, len(cardDeck))
+
+	resultHandleFunc := func(taskFuncResult any) {
+		result := taskFuncResult.(processedCardResult)
+
+		for i := 1; i <= result.countOfFoundWinningNumberForThisCard; i++ {
+			cardCount[result.cardIdx+i]++
+		}
+
+		winningCardCountMap[result.cardIdx] = result.countOfFoundWinningNumberForThisCard
+	}
+
+	e.Run(taskEmitter, resultHandleFunc)
 
 	updateCardCount(cardCount, winningCardCountMap)
 

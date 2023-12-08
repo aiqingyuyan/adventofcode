@@ -9,6 +9,14 @@ import (
 	"yanyu/aoc/2023/util"
 )
 
+func generateMatrix(lineEmitter <-chan *string) []string {
+	var matrix []string
+	for line := range lineEmitter {
+		matrix = append(matrix, *line)
+	}
+	return matrix
+}
+
 func getLeft(matrix []string, rowIdx, columnIdx int) []byte {
 	if columnIdx < 0 {
 		return nil
@@ -143,7 +151,7 @@ func processLine(matrix []string, currentLineIdx int) int {
 }
 
 func generateTaskFunc(matrix []string, lineIdx int) executor.TaskFunc {
-	return func() int {
+	return func() any {
 		return processLine(matrix, lineIdx)
 	}
 }
@@ -160,17 +168,20 @@ func createTaskEmitter(matrix []string) <-chan executor.TaskFunc {
 }
 
 func main() {
-	lineEmitter := util.ReadFile(filepath.Join("2023", "day3", "part2", "input.txt"))
-
-	var matrix []string
-	for line := range lineEmitter {
-		matrix = append(matrix, *line)
-	}
-
 	e := executor.New(6)
 
+	lineEmitter := util.ReadFile(filepath.Join("2023", "day3", "part2", "input.txt"))
+
+	matrix := generateMatrix(lineEmitter)
+
 	taskEmitter := createTaskEmitter(matrix)
-	result := e.Run(taskEmitter)
+
+	result := 0
+	resultHandleFunc := func(taskFuncResult any) {
+		result += taskFuncResult.(int)
+	}
+
+	e.Run(taskEmitter, resultHandleFunc)
 
 	log.Println("result is ", result)
 }

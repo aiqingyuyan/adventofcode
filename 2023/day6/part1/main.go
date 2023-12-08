@@ -5,7 +5,6 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
-	"sync"
 	"yanyu/aoc/2023/executor"
 	"yanyu/aoc/2023/util"
 )
@@ -45,8 +44,8 @@ func transformLinesToComputationParam(lineBuffer []string) <-chan computationPar
 	return parameterEmitter
 }
 
-func generateTaskFunc(param computationParameter, result *int, lock *sync.Mutex) executor.TaskFunc {
-	return func() int {
+func generateTaskFunc(param computationParameter) executor.TaskFunc {
+	return func() any {
 		delta := param.time*param.time - 4*-1*-param.distance
 		sqrtOfDelta := math.Sqrt(float64(delta))
 		x1 := int(math.Floor((float64(-param.time)+sqrtOfDelta)/-2 + 1))
@@ -54,21 +53,23 @@ func generateTaskFunc(param computationParameter, result *int, lock *sync.Mutex)
 
 		log.Printf("[%d, %d]", x1, x2)
 
-		lock.Lock()
-		defer lock.Unlock()
+		//lock.Lock()
+		//defer lock.Unlock()
 
-		*result *= x2 - x1 + 1
+		return x2 - x1 + 1
 
-		return 0
+		//*result *= x2 - x1 + 1
+
+		//return 0
 	}
 }
 
-func generateTaskEmitter(paramsEmitter <-chan computationParameter, result *int, lock *sync.Mutex) <-chan executor.TaskFunc {
+func generateTaskEmitter(paramsEmitter <-chan computationParameter) <-chan executor.TaskFunc {
 	taskEmitter := make(chan executor.TaskFunc)
 
 	go func() {
 		for param := range paramsEmitter {
-			taskEmitter <- generateTaskFunc(param, result, lock)
+			taskEmitter <- generateTaskFunc(param)
 		}
 
 		close(taskEmitter)
@@ -84,13 +85,14 @@ func main() {
 	lineBuffer := bufferLines(lineEmitter)
 	paramsEmitter := transformLinesToComputationParam(lineBuffer)
 
-	var (
-		result = 1
-		lock   sync.Mutex
-	)
-	taskEmitter := generateTaskEmitter(paramsEmitter, &result, &lock)
+	taskEmitter := generateTaskEmitter(paramsEmitter)
 
-	e.Run(taskEmitter)
+	result := 1
+	resultHandleFunc := func(taskFuncResult any) {
+		result *= taskFuncResult.(int)
+	}
+
+	e.Run(taskEmitter, resultHandleFunc)
 
 	log.Println("result is", result)
 }

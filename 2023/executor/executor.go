@@ -5,14 +5,16 @@ import (
 )
 
 type Executor interface {
-	Run(taskEmitter <-chan TaskFunc) int
+	Run(taskEmitter <-chan TaskFunc, resultHandleFunc ResultHandleFunc)
 }
 
-type TaskFunc func() int
+type TaskFunc func() any
+
+type ResultHandleFunc func(any)
 
 type executor struct {
 	executorChan   chan chan TaskFunc
-	resultChan     chan int
+	resultChan     chan any
 	numberOfWorker int
 }
 
@@ -23,18 +25,18 @@ func New(numberOfWorker int) Executor {
 
 	executor := executor{
 		executorChan:   make(chan chan TaskFunc),
-		resultChan:     make(chan int, numberOfWorker),
+		resultChan:     make(chan any, numberOfWorker),
 		numberOfWorker: numberOfWorker,
 	}
 
 	for i := 0; i < numberOfWorker; i++ {
-		startWorker(executor.executorChan, executor.resultChan /*, processLineFunc*/)
+		startWorker(executor.executorChan, executor.resultChan)
 	}
 
 	return &executor
 }
 
-func startWorker(executorChan chan chan TaskFunc, resultChan chan int) {
+func startWorker(executorChan chan chan TaskFunc, resultChan chan<- any) {
 	workerTaskChan := make(chan TaskFunc)
 
 	go func() {
@@ -48,9 +50,7 @@ func startWorker(executorChan chan chan TaskFunc, resultChan chan int) {
 	}()
 }
 
-func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
-	result := 0
-
+func (e *executor) Run(taskEmitter <-chan TaskFunc, resultHandleFunc ResultHandleFunc) {
 	var doneEmittingTask bool
 	var workerQueue []chan TaskFunc
 	var taskQueue []TaskFunc
@@ -80,8 +80,8 @@ func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
 		case activeWorker <- activeTask:
 			taskQueue = taskQueue[1:]
 			workerQueue = workerQueue[1:]
-		case number := <-e.resultChan:
-			result += number
+		case result := <-e.resultChan:
+			resultHandleFunc(result)
 		}
 	}
 
@@ -90,6 +90,4 @@ func (e *executor) Run(taskEmitter <-chan TaskFunc) int {
 			e.executorChan <- workerQueue[id]
 		}(i)
 	}
-
-	return result
 }

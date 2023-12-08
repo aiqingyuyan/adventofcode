@@ -1,13 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"path/filepath"
-	"strconv"
 	"yanyu/aoc/2023/executor"
 	"yanyu/aoc/2023/util"
 )
+
+func generateMatrix(lineEmitter <-chan *string) []string {
+	var matrix []string
+	for line := range lineEmitter {
+		matrix = append(matrix, *line)
+	}
+	return matrix
+}
 
 func checkUpperLeft(matrix []string, rowIdx, columnIdx int) bool {
 	if rowIdx < 0 || columnIdx < 0 {
@@ -105,11 +111,7 @@ func processLine(matrix []string, currentLineIdx int) int {
 		if (c < '0' || c > '9') && numStartIdx >= 0 {
 			numEndIdx = columnIdx - 1
 			if isValidNumber(matrix, currentLineIdx, numStartIdx, numEndIdx) {
-				num, err := strconv.Atoi(string(numBuffer))
-				if err != nil {
-					fmt.Printf("%+v\n", err)
-					panic(err)
-				}
+				num := util.StrToNum(string(numBuffer))
 				result += num
 			}
 			numBuffer = nil
@@ -121,11 +123,7 @@ func processLine(matrix []string, currentLineIdx int) int {
 	if len(numBuffer) > 0 {
 		numEndIdx = len(currentLine) - 1
 		if isValidNumber(matrix, currentLineIdx, numStartIdx, numEndIdx) {
-			num, err := strconv.Atoi(string(numBuffer))
-			if err != nil {
-				fmt.Printf("%+v\n", err)
-				panic(err)
-			}
+			num := util.StrToNum(string(numBuffer))
 			result += num
 		}
 	}
@@ -134,7 +132,7 @@ func processLine(matrix []string, currentLineIdx int) int {
 }
 
 func generateTaskFunc(matrix []string, lineIdx int) executor.TaskFunc {
-	return func() int {
+	return func() any {
 		return processLine(matrix, lineIdx)
 	}
 }
@@ -151,17 +149,20 @@ func createTaskEmitter(matrix []string) <-chan executor.TaskFunc {
 }
 
 func main() {
-	lineEmitter := util.ReadFile(filepath.Join("2023", "day3", "part1", "input.txt"))
-
-	var matrix []string
-	for line := range lineEmitter {
-		matrix = append(matrix, *line)
-	}
-
 	e := executor.New(6)
 
-	taskEmitter := createTaskEmitter(matrix)
-	result := e.Run(taskEmitter)
+	lineEmitter := util.ReadFile(filepath.Join("2023", "day3", "part1", "input.txt"))
 
-	log.Println("result is ", result)
+	matrix := generateMatrix(lineEmitter)
+
+	taskEmitter := createTaskEmitter(matrix)
+
+	result := 0
+	resultHandleFunc := func(taskFuncResult any) {
+		result += taskFuncResult.(int)
+	}
+
+	e.Run(taskEmitter, resultHandleFunc)
+
+	log.Println("result is", result)
 }

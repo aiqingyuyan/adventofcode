@@ -62,7 +62,7 @@ func processLine(line *string) int {
 }
 
 func generateTaskFunc(linePtr *string) executor.TaskFunc {
-	return func() int {
+	return func() any {
 		return processLine(linePtr)
 	}
 }
@@ -84,7 +84,12 @@ func main() {
 	lineEmitter := util.ReadFile(filepath.Join("2023", "day4", "input.txt"))
 	taskEmitter := createTaskEmitter(lineEmitter)
 
-	result := e.Run(taskEmitter)
+	result := 0
+	resultHandleFunc := func(taskFuncResult any) {
+		result += taskFuncResult.(int)
+	}
 
-	log.Println("result is ", result)
+	e.Run(taskEmitter, resultHandleFunc)
+
+	log.Println("result is", result)
 }
