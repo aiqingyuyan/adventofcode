@@ -27,7 +27,7 @@ func ReadFile(path string) <-chan *string {
 
 		close(lineEmitter)
 
-		log.Println("done reading all lines")
+		//log.Println("done reading all lines")
 	}()
 
 	return lineEmitter
