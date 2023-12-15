@@ -46,14 +46,14 @@ func findCombinations(records []byte, groupsOfDamaged []int, currentFoundDamaged
 	case '.':
 		if indexIntoGroupsOfDamaged < len(groupsOfDamaged) && groupsOfDamaged[indexIntoGroupsOfDamaged] == currentFoundDamaged {
 			numOfCombinations = findCombinations(records[1:], groupsOfDamaged, 0, indexIntoGroupsOfDamaged+1, subRecords+".", mem)
-		} else if currentFoundDamaged == 0 { // if currentDamagedGroupNum > 0: current damaged group != groupsOfDamaged[0]
+		} else if currentFoundDamaged == 0 { // if currentFoundDamaged > 0: current found group != groupsOfDamaged[indexIntoGroupsOfDamaged]
 			numOfCombinations = findCombinations(records[1:], groupsOfDamaged, currentFoundDamaged, indexIntoGroupsOfDamaged, subRecords+".", mem)
 		}
 	case '?':
 		// .
 		if indexIntoGroupsOfDamaged < len(groupsOfDamaged) && groupsOfDamaged[indexIntoGroupsOfDamaged] == currentFoundDamaged {
 			numOfCombinations = findCombinations(records[1:], groupsOfDamaged, 0, indexIntoGroupsOfDamaged+1, subRecords+"?", mem)
-		} else if currentFoundDamaged == 0 { // if currentDamagedGroupNum > 0: current damaged group != groupsOfDamaged[0]
+		} else if currentFoundDamaged == 0 { // if currentFoundDamaged > 0: current found group != groupsOfDamaged[indexIntoGroupsOfDamaged]
 			numOfCombinations = findCombinations(records[1:], groupsOfDamaged, currentFoundDamaged, indexIntoGroupsOfDamaged, subRecords+"?", mem)
 		}
 
