@@ -65,7 +65,7 @@ func isValidReflection(matrix []string, rowNum int) bool {
 			countOfDiff++
 		}
 
-		if diff > 2 {
+		if diff > 1 {
 			return false
 		}
 
@@ -80,7 +80,7 @@ func isValidReflection(matrix []string, rowNum int) bool {
 	}
 }
 
-func findRowNumber(matrix []string, transposed bool) int {
+func findMatrixResult(matrix []string, transposed bool) int {
 	for i := 0; i < len(matrix); i++ {
 		if isValidReflection(matrix, i) {
 			if !transposed {
@@ -95,11 +95,11 @@ func findRowNumber(matrix []string, transposed bool) int {
 }
 
 func processPattern(pattern *Pattern) int {
-	result := findRowNumber(pattern.matrix, false)
+	result := findMatrixResult(pattern.matrix, false)
 
 	if result == 0 {
 		pattern.matrix = transpose(pattern.matrix)
-		result = findRowNumber(pattern.matrix, true)
+		result = findMatrixResult(pattern.matrix, true)
 	}
 
 	return result
