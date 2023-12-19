@@ -65,3 +65,17 @@ func Max(a, b int) int {
 
 	return b
 }
+
+func Transpose(matrix []string) []string {
+	var newMatrix = make([]string, len(matrix[0]))
+
+	for col := 0; col < len(matrix[0]); col++ {
+		var colVals []byte
+		for row := 0; row < len(matrix); row++ {
+			colVals = append(colVals, matrix[row][col])
+		}
+		newMatrix[col] = string(colVals)
+	}
+
+	return newMatrix
+}
