@@ -50,20 +50,42 @@ func StrToNum(str string) int {
 	}
 }
 
-func Min(a, b int) int {
-	if a < b {
-		return a
+func Min(a int, rest ...int) int {
+	min := a
+
+	for _, next := range rest {
+		if next < min {
+			min = next
+		}
 	}
 
-	return b
+	return min
 }
 
-func Max(a, b int) int {
-	if a > b {
-		return a
+func Max(a int, rest ...int) int {
+	max := a
+
+	for _, next := range rest {
+		if next > max {
+			max = next
+		}
 	}
 
-	return b
+	return max
+}
+
+func IdxOfMaxElement(elements []int) int {
+	currentMaxIdx := 0
+	currentMax := elements[0]
+
+	for id, e := range elements {
+		if e > currentMax {
+			currentMaxIdx = id
+			currentMax = e
+		}
+	}
+
+	return currentMaxIdx
 }
 
 func Transpose(matrix []string) []string {
